@@ -1,0 +1,118 @@
+version: '3.4'
+
+services:
+  kong-db:
+    image: postgres:9.6
+    deploy:
+      restart_policy:
+        condition: on-failure
+    volumes:
+      - kong-datastore:/var/lib/postgresql/data
+    networks:
+      - kk-net
+    environment:
+      POSTGRES_DB: kongdb
+      POSTGRES_USER: kongusr
+      POSTGRES_PASSWORD: verysecretepassword
+  kong-migration:
+    image: kong:1.4.0-alpine-oidc
+    command: kong migrations bootstrap
+    deploy:
+      restart_policy:
+        condition: on-failure
+    networks:
+      - kk-net
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-db
+      KONG_PG_PORT: 5432
+      KONG_PG_DATABASE: kongdb
+      KONG_PG_USER: kongusr
+      KONG_PG_PASSWORD: verysecretepassword
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_PROXY_LISTEN: 0.0.0.0:8000, 0.0.0.0:8443 ssl
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001, 0.0.0.0:8444 ssl
+      KONG_PLUGINS: bundled,oidc
+      KONG_LOG_LEVEL: debug
+  kong:
+    image: kong:1.4.0-alpine-oidc
+    deploy:
+      restart_policy:
+        condition: on-failure
+    networks:
+      - kk-net
+    ports:
+      - "8000:8000" # Listener
+      - "8001:8001" # Admin API
+      - "8443:8443" # Listener  (SSL)
+      - "8444:8444" # Admin API (SSL)
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-db
+      KONG_PG_PORT: 5432
+      KONG_PG_DATABASE: kongdb
+      KONG_PG_USER: kongusr
+      KONG_PG_PASSWORD: verysecretepassword
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_PROXY_LISTEN: 0.0.0.0:8000, 0.0.0.0:8443 ssl
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001, 0.0.0.0:8444 ssl
+      KONG_PLUGINS: bundled,oidc
+      KONG_LOG_LEVEL: debug
+  konga:
+    image: pantsel/konga:0.14.7
+    deploy:
+      restart_policy:
+        condition: on-failure
+    volumes:
+      - konga-data:/app/kongadata
+    networks:
+      - kk-net
+    ports:
+      - "1337:1337"
+    environment:
+      NODE_ENV: development
+  keycloak-db:
+    image: postgres:9.6
+    deploy:
+      restart_policy:
+        condition: on-failure
+    volumes: 
+      - keycloak-datastore:/var/lib/postresql/data
+    networks:
+      - kk-net
+    environment:
+      POSTGRES_DB: keycloakdb
+      POSTGRES_USER: keycloakusr
+      POSTGRES_PASSWORD: verysecretepassword
+  keycloak:
+    image: jboss/keycloak:8.0.0
+    deploy:
+      restart_policy:
+        condition: on-failure
+    networks:
+      - kk-net
+    ports:
+      - "8180:8080"
+    environment:
+      DB_VENDOR: POSTGRES
+      DB_ADDR: keycloak-db
+      DB_PORT: 5432
+      DB_DATABASE: keycloakdb
+      DB_USER: keycloakusr
+      DB_PASSWORD: verysecretepassword
+      KEYCLOAK_USER: admin
+      KEYCLOAK_PASSWORD: admin
+
+networks: 
+  kk-net:
+
+volumes:
+  kong-datastore:
+  konga-data:
+  keycloak-datastore:
